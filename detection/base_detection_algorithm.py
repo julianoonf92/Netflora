@@ -9,7 +9,7 @@ from qgis.core import (
     QgsProcessingParameterFeatureSink, QgsProcessingParameterNumber, QgsProcessingParameterBoolean,
     QgsProcessingParameterFileDestination,
     QgsProcessingContext, QgsProcessingException, QgsFeature, QgsFields, QgsField,
-    QgsWkbTypes, QgsFeatureSink, QgsProcessing, QgsCoordinateReferenceSystem,
+    QgsFeatureSink, QgsCoordinateReferenceSystem,
     QgsProcessingOutputVectorLayer, QgsProject, QgsRasterLayer, QgsProcessingUtils,
     QgsSymbol, QgsRendererCategory, QgsCategorizedSymbolRenderer,
     QgsSimpleFillSymbolLayer, QgsVectorLayerSimpleLabeling,
@@ -21,6 +21,11 @@ from qgis.PyQt.QtGui import QColor
 from ..common.model_manager import ensure_model_path
 from ..common.preprocessing import run_preprocessing
 from ..common.inference import run_detection
+from ..common.qgis_compat import (
+    PROCESSING_NUMBER_DOUBLE,
+    PROCESSING_VECTOR_POLYGON,
+    WKB_POLYGON,
+)
 
 DOCS_URL = "https://github.com/karasinski-mauro/Netflora"
 
@@ -169,7 +174,7 @@ class BaseDetectionAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.P_CONF,
                 "Confidence threshold",
-                type=QgsProcessingParameterNumber.Double,
+                type=PROCESSING_NUMBER_DOUBLE,
                 minValue=0.0,
                 maxValue=1.0,
                 defaultValue=0.05,
@@ -182,7 +187,7 @@ class BaseDetectionAlgorithm(QgsProcessingAlgorithm):
         )
         self.addParameter(
             QgsProcessingParameterFeatureSink(
-                self.O_SINK, "Detections (boxes)", type=QgsProcessing.TypeVectorPolygon
+                self.O_SINK, "Detections (boxes)", type=PROCESSING_VECTOR_POLYGON
             )
         )
         self.addParameter(
@@ -248,7 +253,7 @@ class BaseDetectionAlgorithm(QgsProcessingAlgorithm):
             fields.append(QgsField("sci_name", QVariant.String))
 
         sink, dest_id = self.parameterAsSink(
-            params, self.O_SINK, context, fields, QgsWkbTypes.Polygon, raster_pp.crs()
+            params, self.O_SINK, context, fields, WKB_POLYGON, raster_pp.crs()
         )
 
         for xmin, ymin, xmax, ymax, class_id, conf in boxes:

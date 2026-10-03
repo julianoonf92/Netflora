@@ -124,6 +124,13 @@ Depending on the selected tool, the plugin can generate:
 
 # Installation
 
+## Supported QGIS versions
+
+Netflora supports **QGIS 3.22 through 3.x** (Qt 5) and **QGIS 4.x** (Qt 6),
+including QGIS 4.2. Use the Python environment shipped with your QGIS
+installation when installing the dependencies below. Do not install PyQt
+separately; the plugin uses QGIS's `qgis.PyQt` compatibility layer.
+
 ## Install via ZIP in QGIS
 
 1. Download the Netflora plugin ZIP package.

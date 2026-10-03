@@ -4,6 +4,8 @@ from qgis.core import (
     QgsProcessingParameterFile, QgsProcessingException, QgsProcessingContext
 )
 
+from ...common.qgis_compat import PROCESSING_FILE
+
 # base_algorithm está um nível acima de "custom"
 from ..base_detection_algorithm import BaseDetectionAlgorithm
 
@@ -27,7 +29,7 @@ class DET_Custom(BaseDetectionAlgorithm):
         self.addParameter(QgsProcessingParameterFile(
             self.P_MODEL,
             "Custom model weight (.onnx ou .pt)",
-            behavior=QgsProcessingParameterFile.File,
+            behavior=PROCESSING_FILE,
             fileFilter="ONNX/PT (*.onnx *.pt)"
         ))
 

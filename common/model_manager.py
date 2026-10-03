@@ -13,12 +13,13 @@ from qgis.PyQt.QtCore import (
     QObject,
     QThread,
     QUrl,
-    Qt,
     pyqtSlot,
 )
 from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.PyQt.QtWidgets import QApplication, QFileDialog, QMessageBox
 from qgis.core import QgsApplication, QgsNetworkAccessManager
+
+from .qgis_compat import BLOCKING_QUEUED_CONNECTION
 
 
 REGISTRY_FILE = "model_registry.json"
@@ -66,7 +67,7 @@ def _run_in_gui_thread(func):
         invoker._func = func
         invoker.result = None
         invoker.error = None
-        QMetaObject.invokeMethod(invoker, "execute", Qt.BlockingQueuedConnection)
+        QMetaObject.invokeMethod(invoker, "execute", BLOCKING_QUEUED_CONNECTION)
         if invoker.error is not None:
             raise invoker.error
         return invoker.result
@@ -147,7 +148,13 @@ def _first_existing_path(paths):
 
 def _http_get(url: str, headers: Optional[dict] = None):
     request = QNetworkRequest(QUrl(url))
-    request.setAttribute(QNetworkRequest.FollowRedirectsAttribute, True)
+    try:
+        redirect_attribute = QNetworkRequest.Attribute.RedirectPolicyAttribute
+        redirect_policy = QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy
+    except AttributeError:  # Qt 5
+        redirect_attribute = QNetworkRequest.FollowRedirectsAttribute
+        redirect_policy = True
+    request.setAttribute(redirect_attribute, redirect_policy)
     request.setRawHeader(b"User-Agent", b"Netflora-QGIS-Plugin")
     if headers:
         for key, value in headers.items():
@@ -159,7 +166,11 @@ def _http_get(url: str, headers: Optional[dict] = None):
     reply.finished.connect(loop.quit)
     loop.exec()
 
-    status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+    try:
+        status_attribute = QNetworkRequest.Attribute.HttpStatusCodeAttribute
+    except AttributeError:  # Qt 5
+        status_attribute = QNetworkRequest.HttpStatusCodeAttribute
+    status_code = reply.attribute(status_attribute)
     error = reply.error()
     payload = bytes(reply.readAll())
     error_message = reply.errorString()

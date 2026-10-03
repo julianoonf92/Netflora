@@ -1,10 +1,12 @@
 from qgis.core import (
     QgsProcessingAlgorithm, QgsProcessingParameterRasterLayer, QgsProcessingParameterFeatureSink,
     QgsProcessingParameterNumber, QgsProcessingOutputVectorLayer, QgsProcessingContext,
-    QgsProcessingFeedback, QgsVectorLayer, QgsWkbTypes, QgsFields, QgsField, QgsFeature,
+    QgsProcessingFeedback, QgsVectorLayer, QgsFields, QgsField, QgsFeature,
     QgsFeatureSink, QgsPointXY, QgsGeometry
 )
-from PyQt5.QtCore import QVariant
+from qgis.PyQt.QtCore import QVariant
+
+from ..common.qgis_compat import PROCESSING_VECTOR_POINT, WKB_POINT
 
 class NetfloraDetector(QgsProcessingAlgorithm):
     INPUT_RASTER = 'INPUT_RASTER'
@@ -14,7 +16,7 @@ class NetfloraDetector(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterRasterLayer(self.INPUT_RASTER, "Imagem de entrada"))
         self.addParameter(QgsProcessingParameterNumber(self.CONFIDENCE, "Confiança mínima", defaultValue=0.25))
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, "Saída das detecções", type=QgsProcessing.TypeVectorPoint))
+        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT, "Saída das detecções", type=PROCESSING_VECTOR_POINT))
 
     def processAlgorithm(self, parameters, context: QgsProcessingContext, feedback: QgsProcessingFeedback):
         raster_layer = self.parameterAsRasterLayer(parameters, self.INPUT_RASTER, context)
@@ -27,7 +29,7 @@ class NetfloraDetector(QgsProcessingAlgorithm):
             self.OUTPUT,
             context,
             QgsFields([QgsField('id', QVariant.Int)]),
-            QgsWkbTypes.Point,
+            WKB_POINT,
             raster_layer.crs()
         )
 

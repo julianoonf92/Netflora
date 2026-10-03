@@ -39,11 +39,10 @@ import math
 import csv
 import random
 
-from qgis.PyQt.QtCore import QVariant, Qt
+from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QColor
 
 from qgis.core import (
-    QgsProcessing,
     QgsProcessingAlgorithm,
     QgsProcessingParameterVectorLayer,
     QgsProcessingParameterFileDestination,
@@ -58,7 +57,6 @@ from qgis.core import (
     QgsField,
     QgsGeometry,
     QgsPointXY,
-    QgsWkbTypes,
     QgsProject,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
@@ -69,8 +67,18 @@ from qgis.core import (
     QgsVectorLayer,
     QgsVectorFileWriter,
     QgsSingleSymbolRenderer,
-    QgsProcessingParameterDefinition,
     QgsCategorizedSymbolRenderer, QgsRendererCategory, QgsSymbol
+)
+
+from ..common.qgis_compat import (
+    DASH_LINE,
+    PROCESSING_NUMBER_DOUBLE,
+    PROCESSING_PARAMETER_HIDDEN,
+    PROCESSING_VECTOR_LINE,
+    PROCESSING_VECTOR_POINT,
+    PROCESSING_VECTOR_POLYGON,
+    WKB_LINE_STRING,
+    WKB_POINT,
 )
 
 class NetfloraFlightPlanner(QgsProcessingAlgorithm):
@@ -182,7 +190,7 @@ class NetfloraFlightPlanner(QgsProcessingAlgorithm):
         # ===================== INPUTS / ORIENTATION =====================
         self.addParameter(QgsProcessingParameterVectorLayer(
             self.INPUT_POLYGON, "Mapping area (polygon)",
-            [QgsProcessing.TypeVectorPolygon]
+            [PROCESSING_VECTOR_POLYGON]
         ))
         self.addParameter(QgsProcessingParameterEnum(
             self.ORIENT_MODE, "Orientation method",
@@ -190,7 +198,7 @@ class NetfloraFlightPlanner(QgsProcessingAlgorithm):
         ))
         self.addParameter(QgsProcessingParameterVectorLayer(
             self.ORIENT_LINE, "Orientation line (1 feature; lane heading)",
-            [QgsProcessing.TypeVectorLine], optional=True
+            [PROCESSING_VECTOR_LINE], optional=True
         ))
         self.addParameter(QgsProcessingParameterPoint(
             self.ORIENT_START, "Start point (click on map)", optional=True
@@ -208,31 +216,31 @@ class NetfloraFlightPlanner(QgsProcessingAlgorithm):
         # ===================== FLIGHT PARAMETERS =====================
         self.addParameter(QgsProcessingParameterNumber(
             self.ALTURA_VOO, "Flight altitude (m)",
-            type=QgsProcessingParameterNumber.Double, defaultValue=150.0
+            type=PROCESSING_NUMBER_DOUBLE, defaultValue=150.0
         ))
         self.addParameter(QgsProcessingParameterNumber(
             self.VELOCIDADE, "Drone speed (m/s)",
-            type=QgsProcessingParameterNumber.Double, defaultValue=15.0
+            type=PROCESSING_NUMBER_DOUBLE, defaultValue=15.0
         ))
         self.addParameter(QgsProcessingParameterNumber(
             self.OVERLAP_LAT, "Lateral overlap (%)",
-            type=QgsProcessingParameterNumber.Double, defaultValue=80.0
+            type=PROCESSING_NUMBER_DOUBLE, defaultValue=80.0
         ))
         self.addParameter(QgsProcessingParameterNumber(
             self.OVERLAP_LONG, "Longitudinal overlap (%)",
-            type=QgsProcessingParameterNumber.Double, defaultValue=80.0
+            type=PROCESSING_NUMBER_DOUBLE, defaultValue=80.0
         ))
         self.addParameter(QgsProcessingParameterNumber(
             self.TEMPO_MAX, "Max mission time (min)",
-            type=QgsProcessingParameterNumber.Double, defaultValue=12.0
+            type=PROCESSING_NUMBER_DOUBLE, defaultValue=12.0
         ))
         self.addParameter(QgsProcessingParameterNumber(
             self.TURN_CHAMFER, "Corner chamfer (m)",
-            type=QgsProcessingParameterNumber.Double, defaultValue=10.0
+            type=PROCESSING_NUMBER_DOUBLE, defaultValue=10.0
         ))
         self.addParameter(QgsProcessingParameterNumber(
             self.MARGEM_BORDA, "Outer margin outside AOI (m)",
-            type=QgsProcessingParameterNumber.Double, defaultValue=50.0
+            type=PROCESSING_NUMBER_DOUBLE, defaultValue=50.0
         ))
         self.addParameter(QgsProcessingParameterBoolean(
             self.INCLUDE_HOME_CSV, "Show Home in map (not in CSV)",
@@ -260,31 +268,31 @@ class NetfloraFlightPlanner(QgsProcessingAlgorithm):
             "CSV files (*.csv)",
             optional=True,
         )
-        param_csv.setFlags(param_csv.flags() | QgsProcessingParameterDefinition.FlagHidden)
+        param_csv.setFlags(param_csv.flags() | PROCESSING_PARAMETER_HIDDEN)
         self.addParameter(param_csv)
 
         p_paths = QgsProcessingParameterFeatureSink(
             self.OUTPUT_PATHS, "Paths (per-mission lines)",
-            QgsProcessing.TypeVectorLine, optional=True, createByDefault=True
+            PROCESSING_VECTOR_LINE, optional=True, createByDefault=True
         )
         p_paths.setDefaultValue('TEMPORARY_OUTPUT')
-        p_paths.setFlags(p_paths.flags() | QgsProcessingParameterDefinition.FlagHidden)
+        p_paths.setFlags(p_paths.flags() | PROCESSING_PARAMETER_HIDDEN)
         self.addParameter(p_paths)
 
         p_pts = QgsProcessingParameterFeatureSink(
             self.OUTPUT_WAYPOINTS, "Waypoints (points)",
-            QgsProcessing.TypeVectorPoint, optional=True, createByDefault=True
+            PROCESSING_VECTOR_POINT, optional=True, createByDefault=True
         )
         p_pts.setDefaultValue('TEMPORARY_OUTPUT')
-        p_pts.setFlags(p_pts.flags() | QgsProcessingParameterDefinition.FlagHidden)
+        p_pts.setFlags(p_pts.flags() | PROCESSING_PARAMETER_HIDDEN)
         self.addParameter(p_pts)
 
         p_orient = QgsProcessingParameterFeatureSink(
             self.OUTPUT_ORIENT, "Orientation line (preview)",
-            QgsProcessing.TypeVectorLine, optional=True, createByDefault=True
+            PROCESSING_VECTOR_LINE, optional=True, createByDefault=True
         )
         p_orient.setDefaultValue('TEMPORARY_OUTPUT')
-        p_orient.setFlags(p_orient.flags() | QgsProcessingParameterDefinition.FlagHidden)
+        p_orient.setFlags(p_orient.flags() | PROCESSING_PARAMETER_HIDDEN)
         self.addParameter(p_orient)
 
 
@@ -420,7 +428,7 @@ class NetfloraFlightPlanner(QgsProcessingAlgorithm):
         fields_orient = QgsFields(); fields_orient.append(QgsField("source", QVariant.String))
         sink_orient, id_orient = self.parameterAsSink(
             parameters, self.OUTPUT_ORIENT, context,
-            fields_orient, QgsWkbTypes.LineString, layer.crs()
+            fields_orient, WKB_LINE_STRING, layer.crs()
         )
 
         theta = 0.0
@@ -703,8 +711,8 @@ class NetfloraFlightPlanner(QgsProcessingAlgorithm):
         fields_lines = QgsFields(); fields_lines.append(QgsField("mission", QVariant.Int)); fields_lines.append(QgsField("wp_count", QVariant.Int))
         fields_pts   = QgsFields(); fields_pts.append(QgsField("mission", QVariant.Int));   fields_pts.append(QgsField("idx", QVariant.Int)); fields_pts.append(QgsField("alt", QVariant.Double))
 
-        sink_lines, id_lines = self.parameterAsSink(parameters, self.OUTPUT_PATHS, context, fields_lines, QgsWkbTypes.LineString, layer.crs())
-        sink_pts,   id_pts   = self.parameterAsSink(parameters, self.OUTPUT_WAYPOINTS, context, fields_pts,   QgsWkbTypes.Point,      layer.crs())
+        sink_lines, id_lines = self.parameterAsSink(parameters, self.OUTPUT_PATHS, context, fields_lines, WKB_LINE_STRING, layer.crs())
+        sink_pts,   id_pts   = self.parameterAsSink(parameters, self.OUTPUT_WAYPOINTS, context, fields_pts,   WKB_POINT,      layer.crs())
 
         for mi, wps in enumerate(missions, start=1):
             if len(wps) >= 2:
@@ -839,7 +847,7 @@ class NetfloraFlightPlanner(QgsProcessingAlgorithm):
                     try:
                         sl = sym.symbolLayer(0)
                         if hasattr(sl, "setWidth"): sl.setWidth(0.8)
-                        if hasattr(sl, "setPenStyle"): sl.setPenStyle(Qt.DashLine)
+                        if hasattr(sl, "setPenStyle"): sl.setPenStyle(DASH_LINE)
                     except Exception:
                         pass
                     from qgis.core import QgsSingleSymbolRenderer
